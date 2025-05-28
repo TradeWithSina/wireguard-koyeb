@@ -1,30 +1,37 @@
 #!/bin/bash
 set -e
 
-# Generate server keys
-wg genkey | tee /etc/wireguard/server_private.key | wg pubkey > /etc/wireguard/server_public.key
-PRIVATE_KEY=$(cat /etc/wireguard/server_private.key)
-PUBLIC_KEY=$(cat /etc/wireguard/server_public.key)
+WG_DIR="/etc/wireguard"
+WG_PRIVATE_KEY_FILE="$WG_DIR/server_private.key"
+WG_PUBLIC_KEY_FILE="$WG_DIR/server_public.key"
+WG_CONFIG_FILE="$WG_DIR/wg0.conf"
 
-# Get public IP
-PUBLIC_IP=$(curl -s ifconfig.me)
+# ساخت فولدر و تنظیم دسترسی
+mkdir -p "$WG_DIR"
+chmod 700 "$WG_DIR"
 
-# Create WireGuard config
-cat <<EOF > /etc/wireguard/wg0.conf
+# ساخت کلیدهای WireGuard در صورت وجود نداشتن
+if [ ! -f "$WG_PRIVATE_KEY_FILE" ]; then
+  wg genkey | tee "$WG_PRIVATE_KEY_FILE" | wg pubkey > "$WG_PUBLIC_KEY_FILE"
+fi
+
+# ساخت فایل کانفیگ wg0.conf اگر وجود نداشته باشد
+if [ ! -f "$WG_CONFIG_FILE" ]; then
+  cat <<EOF > "$WG_CONFIG_FILE"
 [Interface]
-PrivateKey = $PRIVATE_KEY
+PrivateKey = $(cat $WG_PRIVATE_KEY_FILE)
 Address = 10.0.0.1/24
 ListenPort = 51820
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 
-[Peer]
-PublicKey = PLACEHOLDER
-AllowedIPs = 10.0.0.2/32
+# Peer example:
+#[Peer]
+#PublicKey = <client-public-key>
+#AllowedIPs = 10.0.0.2/32
 EOF
+fi
 
-# Start WireGuard
-wg-quick up wg0
+# اجرای WireGuard
+exec wg-quick up wg0
 
-# Keep container running
-tail -f /dev/null
+# اگر بخوای بعدش کانتینر به صورت فعال بمونه، می‌تونی به جای exec این رو بذاری:
+# tail -f /dev/null
