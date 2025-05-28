@@ -1,9 +1,10 @@
 FROM ubuntu:22.04
 
-RUN apt-get update && \
+RUN apt-get update && apt-get install -y software-properties-common curl && \
+    add-apt-repository ppa:wireguard/wireguard -y && \
+    apt-get update && \
     apt-get install -y wireguard iproute2 iptables curl qrencode && \
-    mkdir /etc/wireguard && \
-    chmod 700 /etc/wireguard
+    mkdir /etc/wireguard && chmod 700 /etc/wireguard
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
